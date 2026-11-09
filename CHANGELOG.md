@@ -3,7 +3,7 @@
 O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/);
 as versões, o [SemVer](https://semver.org/lang/pt-BR/).
 
-## [Não lançado]
+## [8.1.0] - 2026-11-09
 
 ### Acrescentado
 
@@ -32,7 +32,6 @@ as versões, o [SemVer](https://semver.org/lang/pt-BR/).
   trazer os commits).
 - O erro do servidor da AURORA chega à interface com os campos dele
   (`IpcError.data`).
-
 - A aba **Placa virtual** (Fluxo > Mostrar a placa virtual), com a placa
   FPGA ligada nas Preferências: a placa do projeto desenhada a partir do
   JSON dela, com chaves e botões clicáveis, LEDs, displays de 7 segmentos,
