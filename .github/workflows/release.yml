@@ -1,0 +1,156 @@
+# Release da AURORA IDE: numa tag vX.Y.Z, compila a IDE nas três plataformas
+# e publica a release com um arquivo por plataforma, o SHA256SUMS e as notas
+# da versão no CHANGELOG.md.
+#
+#   git tag v8.1.0 && git push origin v8.1.0
+#
+# Cada aurora-ide-<versão>-<plataforma>.tar.gz tem o que o bundle da AURORA
+# põe em toolchain/studio/: o aurora-ide e o aurora-ide.png no Linux e no
+# Windows, o "AURORA IDE.app" no macOS. O aurora fixa a URL e o SHA-256 de
+# cada um no pacote studio do bundle/versions.json; os SHA-256 saem no
+# resumo da execução.
+#
+# Manual (Actions > release > Run workflow): só compila e guarda os arquivos
+# como artefatos da execução, sem publicar.
+
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  # O menor macOS que a AURORA atende, o mesmo dos outros binários do bundle.
+  MACOSX_DEPLOYMENT_TARGET: "13.0"
+
+jobs:
+  # A versão está em quatro lugares, que andam juntos; numa tag, ela tem de
+  # ser a da tag e ter a seção no CHANGELOG.md.
+  check:
+    runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Versão
+        id: version
+        run: |
+          version=$(node -p "require('./package.json').version")
+          lock=$(node -p "require('./package-lock.json').version")
+          conf=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          cargo=$(sed -n 's/^version = "\(.*\)"$/\1/p' src-tauri/Cargo.toml | head -n 1)
+          echo "package.json $version, package-lock.json $lock, tauri.conf.json $conf, Cargo.toml $cargo"
+          for v in "$lock" "$conf" "$cargo"; do
+            test "$v" = "$version" || { echo "as versões não batem"; exit 1; }
+          done
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            test "$GITHUB_REF_NAME" = "v$version" || { echo "a tag é $GITHUB_REF_NAME, mas a versão é $version"; exit 1; }
+            grep -q "^## \[$version\] " CHANGELOG.md || { echo "o CHANGELOG.md não tem a seção ## [$version]"; exit 1; }
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: check
+    name: IDE (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # A distribuição mais antiga que a AURORA atende: o executável exige
+          # a glibc dela (2.35), e ela tem o webkit2gtk 4.1.
+          - os: ubuntu-22.04
+            platform: linux-x64
+          - os: macos-14
+            platform: darwin-arm64
+          - os: windows-2022
+            platform: windows-x64
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      NAME: aurora-ide-${{ needs.check.outputs.version }}-${{ matrix.platform }}
+      PLATFORM: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Dependências do Tauri (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev \
+            libayatana-appindicator3-dev libxdo-dev libssl-dev
+      - run: npm ci --no-audit --no-fund
+      # Como o bundle.py da AURORA compilava: só o executável, e o .app no
+      # macOS, sem os instaladores do Tauri.
+      - name: Compilar
+        run: |
+          if [ "$PLATFORM" = darwin-arm64 ]; then bundles="--bundles app"; else bundles="--no-bundle"; fi
+          npm exec -- tauri build --ci $bundles
+      - name: Empacotar
+        run: |
+          mkdir -p dist
+          out="$PWD/dist/$NAME.tar.gz"
+          if [ "$PLATFORM" = darwin-arm64 ]; then
+            tar -C src-tauri/target/release/bundle/macos -czf "$out" "AURORA IDE.app"
+          else
+            exe=""
+            if [ "$PLATFORM" = windows-x64 ]; then exe=".exe"; fi
+            stage=$(mktemp -d)
+            cp "src-tauri/target/release/aurora-ide$exe" "$stage/"
+            # O ícone que o instalador da AURORA põe no atalho do menu.
+            cp src-tauri/icons/128x128.png "$stage/aurora-ide.png"
+            tar -C "$stage" -czf "$out" "aurora-ide$exe" aurora-ide.png
+          fi
+          tar -tzvf "$out"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.NAME }}
+          path: dist/${{ env.NAME }}.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    needs: [check, build]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Somas e notas
+        run: |
+          version="${{ needs.check.outputs.version }}"
+          (cd dist && sha256sum -- * > SHA256SUMS && cat SHA256SUMS)
+          {
+            awk -v v="[$version]" '/^## / { p = ($2 == v) } p' CHANGELOG.md
+            printf '\n## Arquivos\n\n```\n'
+            cat dist/SHA256SUMS
+            printf '```\n'
+          } > notes.md
+          cat notes.md
+          {
+            echo "### SHA-256 para o pacote studio do bundle/versions.json da AURORA"
+            echo '```'
+            cat dist/SHA256SUMS
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Publicar a release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --verify-tag \
+            --title "AURORA IDE ${{ needs.check.outputs.version }}" \
+            --notes-file notes.md dist/*

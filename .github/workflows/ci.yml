@@ -1,0 +1,107 @@
+# CI da AURORA IDE, em cada push na main e em cada pull request:
+#
+# - a interface: os tipos gerados do schema do submódulo, o TypeScript e o
+#   build do Vite;
+# - o backend: formato, clippy e os testes, inclusive os fluxos de verdade,
+#   com o `aurora` compilado do submódulo como servidor e as ferramentas da
+#   última release da AURORA como bundle;
+# - os commits: nenhum com o Claude como autor ou co-autor.
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  interface:
+    name: interface
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      # O aurora-types.ts tem de ser o que o schema do submódulo gera: um
+      # ponteiro novo sem o `npm run gen:types` para aqui.
+      - name: Tipos do protocolo
+        run: |
+          npm run gen:types
+          git diff --exit-code -- src/ipc/aurora-types.ts
+      - name: TypeScript e Vite
+        run: npm run build
+
+  backend:
+    name: backend
+    runs-on: ubuntu-22.04
+    env:
+      # O servidor dos testes: o `aurora` do submódulo, que fala a versão do
+      # protocolo que a IDE usa. Com ele, os testes do server.rs que abrem
+      # um servidor de verdade também rodam.
+      AURORA_IDE_CLI: ${{ github.workspace }}/vendor/aurora/target/debug/aurora
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Dependências do Tauri
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev \
+            libayatana-appindicator3-dev libxdo-dev libssl-dev
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            src-tauri -> target
+            vendor/aurora -> target
+      - name: Formato
+        working-directory: src-tauri
+        run: cargo fmt --check
+      - name: Clippy
+        working-directory: src-tauri
+        run: cargo clippy --all-targets -- -D warnings
+      - name: O aurora do submódulo
+        working-directory: vendor/aurora
+        run: cargo build -p aurora-cli
+      # Só as ferramentas que os testes de fluxo usam, da última release da
+      # AURORA, na pasta padrão (~/.local/share/aurora), onde a IDE e o
+      # servidor a acham sozinhos.
+      - name: Bundle da AURORA
+        env:
+          AURORA_REPO: nipscernlab-sandbox/aurora
+        run: sh vendor/aurora/install.sh --yes --no-link --components yanc,icarus,verilator,yosys,graphviz
+      # Com CI definido (o GitHub define), um teste de fluxo sem servidor ou
+      # sem bundle falha em vez de pular.
+      - name: Testes
+        working-directory: src-tauri
+        run: cargo test
+
+  commits:
+    name: sem co-autoria do Claude
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Autores e co-autores
+        run: |
+          found=$(
+            git log HEAD -i -E --grep='^co-authored-by:.*(claude|anthropic\.com)' --format='%h %s'
+            git log HEAD -i -E --author='claude|anthropic\.com' --format='%h %s'
+          )
+          if [ -n "$found" ]; then
+            echo "Commits com o Claude como autor ou co-autor:"
+            echo "$found"
+            exit 1
+          fi
