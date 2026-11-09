@@ -24,7 +24,7 @@ Sumário:
 ## 1. Antes de começar
 
 O Studio usa as ferramentas da AURORA, e só elas: precisa da AURORA instalada
-com o bundle ([instalação da AURORA](https://github.com/ART3121/lace#instalar)).
+com o bundle ([instalação da AURORA](https://github.com/nipscernlab-sandbox/aurora#instalar)).
 Ele acha a instalação sozinho; o estado aparece na tela inicial e na barra de
 status (`Bundle 2026.09.29`, ou `AURORA não encontrada`). Se a AURORA estiver
 numa pasta fora do padrão, indique-a em Preferências > Bundle da AURORA.
@@ -703,7 +703,7 @@ reinicia o terminal aberto com o shell novo.
 A vista **Exercícios** (Exibir > Exercícios, ou Ferramentas > Exercícios)
 é o `aurora learn` no Studio: exercícios curtos de Verilog, corrigidos a cada
 gravação contra uma solução de referência
-([docs/LEARN.md](../../docs/LEARN.md) da AURORA). Eles vêm no componente
+([docs/LEARN.md](https://github.com/nipscernlab-sandbox/aurora/blob/main/docs/LEARN.md) da AURORA). Eles vêm no componente
 `aurora-learn`; sem ele, a vista oferece instalá-lo.
 
 - **Criar a pasta de exercícios** escolhe onde, e cria lá a pasta

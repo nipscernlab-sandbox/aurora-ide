@@ -24,6 +24,14 @@ as versões, o [SemVer](https://semver.org/lang/pt-BR/).
   FPGA, com a placa FPGA ligada nas Preferências: abre a aba e gira
   enquanto a placa está ligada.
 
+### Alterado
+
+- A AURORA IDE tem repositório próprio,
+  [nipscernlab-sandbox/aurora-ide](https://github.com/nipscernlab-sandbox/aurora-ide),
+  com o histórico da pasta `studio/` do repositório da AURORA. A AURORA
+  entra como submódulo em `vendor/aurora`, fixado num commit, e a release
+  publica a IDE pronta para cada plataforma, que o bundle da AURORA baixa.
+
 ### Corrigido
 
 - **Ligar a placa** grava os arquivos abertos antes, como compilar e

@@ -10,7 +10,7 @@ tipo de mudança. A arquitetura está em [ARCHITECTURE.md](ARCHITECTURE.md).
 | Rust | 1.90 ou mais novo (`rust-version` do `src-tauri/Cargo.toml`) | o backend; o Tauri 2.12 pede 1.90 |
 | Node.js | 22 | a interface (Vite, TypeScript) |
 | Dependências de sistema do Tauri | ver abaixo | WebView e GTK |
-| O repositório da AURORA | o Studio está em `studio/` dele | o servidor que o Studio abre (`aurora serve`, do `crates/aurora-cli`), o `aurora-agent` do assistente, que entra por caminho (`../../crates/`, em `src-tauri/Cargo.toml`), e os tipos, que saem de `../docs/schema` |
+| O submódulo `vendor/aurora` | o commit fixado neste repositório | o repositório da AURORA: o servidor que o Studio abre (`aurora serve`, do `crates/aurora-cli`), o `aurora-agent` do assistente e o `aurora-protocol`, que entram por caminho (`../vendor/aurora/crates/`, em `src-tauri/Cargo.toml`), os tipos, que saem de `vendor/aurora/docs/schema`, e o RTL viewer |
 | Uma instalação da AURORA | qualquer | o bundle das ferramentas, para rodar o Studio e os testes de fluxo; ou um bundle em `AURORA_TEST_BUNDLE` |
 
 Dependências de sistema, conforme a página de pré-requisitos do Tauri 2
@@ -21,32 +21,45 @@ Dependências de sistema, conforme a página de pré-requisitos do Tauri 2
 - **macOS:** as Command Line Tools do Xcode.
 - **Windows:** as Build Tools do Visual Studio com o C++ e o WebView2 (já vem no Windows 10 e 11 atualizados).
 
-O Studio está no repositório da AURORA, em `studio/`:
+O repositório da AURORA entra como submódulo git em `vendor/aurora`,
+fixado num commit:
 
 ```
-aurora/
-  crates/aurora-cli/    o aurora, que o Studio abre como servidor (aurora serve)
-  crates/aurora-agent/  o assistente, que o Studio linka por caminho
-  docs/schema/        os tipos que o npm run gen:types lê
-  studio/             este
+aurora-ide/
+  src/                      a interface
+  src-tauri/                o backend (Tauri)
+  vendor/aurora/            o repositório da AURORA, no commit fixado
+    crates/aurora-cli/      o aurora, que o Studio abre como servidor (aurora serve)
+    crates/aurora-agent/    o assistente, que o backend linka por caminho
+    crates/aurora-protocol/ os tipos do protocolo, também por caminho
+    docs/schema/            os tipos que o npm run gen:types lê
+    packages/rtl-viewer/    o RTL viewer, que a interface compila do fonte
+    examples/               os projetos dos testes de fluxo
 ```
 
-O `src-tauri/` tem o próprio workspace do Cargo e o próprio `Cargo.lock`:
-o `Cargo.toml` da raiz o deixa de fora (`exclude`), para os testes do Core
-e da CLI não precisarem do WebView nem da interface compilada. Os testes
-dos fluxos do Studio pedem o bundle instalado (`AURORA_TEST_BUNDLE`) e um
-`aurora` para servir, e rodam à mão.
+Clone com o submódulo, ou busque-o depois:
+
+```sh
+git clone --recursive https://github.com/nipscernlab-sandbox/aurora-ide
+git submodule update --init       # num clone feito sem --recursive
+```
+
+O `src-tauri/` tem o próprio `Cargo.lock`, e o build não entra no workspace
+do submódulo. Os testes dos fluxos do Studio pedem o bundle instalado (ou
+`AURORA_TEST_BUNDLE`) e um `aurora` para servir; no CI
+(`.github/workflows/ci.yml`), o `aurora` sai do submódulo e as ferramentas,
+da última release da AURORA.
 
 O Studio não linka o Core: tudo da AURORA é pedido ao servidor, um `aurora
 serve` filho (ARCHITECTURE.md, seção 3.2). Em desenvolvimento, o servidor
-precisa ser o `aurora` do mesmo repositório, que fala os métodos que o Studio
-pede; o da instalação é de outra versão. Compile antes, na raiz, e aponte o
-Studio para ele com `AURORA_IDE_CLI` (ou a preferência Programa aurora, em
-Preferências > Bundle da AURORA):
+precisa ser o `aurora` do submódulo, que fala os métodos que o Studio pede;
+o da instalação pode ser de outra versão. Compile antes e aponte o Studio
+para ele com `AURORA_IDE_CLI` (ou a preferência Programa aurora, em
+Preferências > Bundle da AURORA), com o caminho absoluto:
 
 ```sh
-cargo build -p aurora-cli          # na raiz: target/debug/aurora
-AURORA_IDE_CLI=../target/debug/aurora npm run tauri dev
+cargo build -p aurora-cli --manifest-path vendor/aurora/Cargo.toml
+AURORA_IDE_CLI="$PWD/vendor/aurora/target/debug/aurora" npm run tauri dev
 ```
 
 O bundle é o da instalação da AURORA, achado pelo Studio e passado ao
@@ -85,8 +98,8 @@ check, sim, synth e build sobre cópias dos exemplos da AURORA, a correção de
 um exercício (`learn`) sobre a trilha de teste do `aurora-learn` e as recusas
 do `fpga_build`, com o bundle que o Studio acharia sozinho ou com
 `AURORA_TEST_BUNDLE=/caminho/do/toolchain`. O servidor é o `aurora` de
-`AURORA_IDE_CLI` ou, sem ela, o `target/debug/aurora` da raiz (compile antes
-com `cargo build -p aurora-cli`). Os testes de unidade do `server.rs` que
+`AURORA_IDE_CLI` ou, sem ela, o `vendor/aurora/target/debug/aurora` (compile
+antes, como na seção 1). Os testes de unidade do `server.rs` que
 abrem um servidor de verdade também usam `AURORA_IDE_CLI`. Sem bundle ou
 sem `aurora`, avisam e passam; com `CI` definido, falham.
 
@@ -181,8 +194,9 @@ O que é da AURORA (o projeto, os fluxos, o histórico, a placa, os
 exercícios) não ganha comando no backend: é um método do protocolo, que a
 interface pede pelo `aurora_call`. Se o método ainda não existe, ele nasce no
 AURORA, com o passo a passo de
-[docs/METODOLOGIA.md](../../docs/METODOLOGIA.md), seção 6, e chega ao
-Studio pelo servidor.
+[docs/METODOLOGIA.md](https://github.com/nipscernlab-sandbox/aurora/blob/main/docs/METODOLOGIA.md),
+seção 6, e chega ao Studio pelo servidor quando o submódulo passa a apontar
+para um commit que o tem (seção 6, abaixo).
 
 1. Acrescente a função em `src/ipc/api.ts`, chamando `aurora('<método>',
    { parâmetros })`. O tipo do resultado já está em
@@ -234,7 +248,7 @@ está escondido, não o que aparece.
 ### Um tipo do Core mudou
 
 ```sh
-npm run gen:types     # relê ../docs/schema/*.json
+npm run gen:types     # relê vendor/aurora/docs/schema/*.json
 git diff src/ipc/aurora-types.ts
 ```
 
@@ -277,15 +291,54 @@ AURORA: onde as duas divergem há um comentário dizendo o que vale.
 - Rust: `cargo fmt`, `clippy` sem aviso, `#![forbid(unsafe_code)]`.
 - Um commit por assunto, com a mensagem em português, como na AURORA.
 
-## 6. Versão e distribuição
+## 6. Versão, submódulo e release
 
-A IDE tem versão própria, separada da AURORA API: a primeira com o nome
-novo é a 8.0.0. Ela está em cinco lugares, que andam juntos: `package.json`,
-`package-lock.json`, `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json` e o
-pacote `studio` de `bundle/versions.json` da raiz. O `bundle.py` recusa a IDE
-com versões diferentes, e ela só sobe de versão quando muda
-([docs/RELEASE.md](../../docs/RELEASE.md), seção 6.1). Anote a mudança em
-[CHANGELOG.md](../CHANGELOG.md).
+A IDE tem versão própria, separada da AURORA: a primeira com o nome novo é
+a 8.0.0. Ela está em quatro lugares deste repositório, que andam juntos:
+`package.json`, `package-lock.json`, `src-tauri/Cargo.toml` e
+`src-tauri/tauri.conf.json`. O `release.yml` recusa versões diferentes, e
+a IDE só sobe de versão quando muda (o
+[docs/RELEASE.md](https://github.com/nipscernlab-sandbox/aurora/blob/main/docs/RELEASE.md)
+da AURORA, seção 6.1). Anote a mudança em [CHANGELOG.md](../CHANGELOG.md).
+
+### A versão da AURORA que a IDE usa
+
+É o commit do submódulo `vendor/aurora`. Para trocar:
+
+```sh
+git -C vendor/aurora fetch
+git -C vendor/aurora checkout <tag ou commit>
+npm run gen:types                       # os tipos do schema novo
+git add vendor/aurora src/ipc/aurora-types.ts
+```
+
+O CI confere que o `src/ipc/aurora-types.ts` é o que o schema do submódulo
+gera. Um método novo do protocolo passa por três passos: a AURORA com o
+método na main dela, o ponteiro e a release da IDE, e a release da AURORA
+com a IDE nova no bundle. O `PROTOCOL_VERSION` que a IDE confere ao
+conectar (`src-tauri/src/server.rs`) só muda quando o protocolo deixa de
+ser compatível.
+
+### Release
+
+1. Na main, com a versão nova nos quatro lugares e a seção dela no
+   CHANGELOG.md:
+
+   ```sh
+   git tag v8.1.0 && git push origin v8.1.0
+   ```
+
+2. O `.github/workflows/release.yml` compila a IDE nas três plataformas e
+   publica `aurora-ide-<versão>-<plataforma>.tar.gz` com o `SHA256SUMS`. Os
+   SHA-256 também saem no resumo da execução.
+3. No repositório da AURORA, o pacote `studio` do `bundle/versions.json`
+   recebe a versão, a URL e o SHA-256 de cada plataforma, e a release
+   seguinte da AURORA leva a IDE nova a quem atualiza. É assim a partir da
+   AURORA 1.1.0; até ela, o bundle compilava a IDE da pasta `studio/` do
+   repositório da AURORA.
+
+Sem tag (Actions > release > Run workflow), o mesmo workflow só compila e
+guarda os arquivos na execução, para conferir antes de publicar.
 
 Os ícones do app em `src-tauri/icons/` saem de `public/brand/aurora-icon.svg`.
 O `tauri icon` gera também os de Android e iOS, que o Studio não usa, então
@@ -298,7 +351,7 @@ for f in src-tauri/icons/*; do cp "/tmp/aurora-icons/$(basename "$f")" "$f"; don
 
 `npm run tauri build` gera os instaladores da plataforma em que roda
 (`.deb`, `.rpm` e AppImage no Linux; `.dmg` no macOS; `.msi` e `.exe` no
-Windows). Eles não vão para os usuários: o Studio sai no instalador da AURORA,
-compilado pelo `scripts/bundle.py` da raiz (`tauri build --no-bundle`, e só o
-`.app` no macOS) nas três plataformas, no workflow
-`.github/workflows/installers.yml`, que o `release.yml` chama numa tag.
+Windows). Eles não vão para os usuários: o Studio sai no instalador da
+AURORA, a partir dos arquivos da release deste repositório, que o
+`release.yml` compila com `tauri build --no-bundle` (e só o `.app` no
+macOS).
