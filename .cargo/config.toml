@@ -1,0 +1,6 @@
+# No Windows, o runtime do Visual C++ vai dentro do executável da AURORA IDE:
+# sem isso, ele pede o VCRUNTIME140.dll, que um Windows sem o Visual C++
+# Redistributable não tem. É a mesma configuração do repositório da AURORA,
+# que vale para o aurora e o instalador.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]

@@ -15,8 +15,8 @@
     "noEmit": true,
     "types": ["vite/client"],
     "paths": {
-      "@aurora/rtl-viewer": ["../packages/rtl-viewer/src/index.ts"],
-      "@aurora/rtl-viewer/*": ["../packages/rtl-viewer/src/*"],
+      "@aurora/rtl-viewer": ["./vendor/aurora/packages/rtl-viewer/src/index.ts"],
+      "@aurora/rtl-viewer/*": ["./vendor/aurora/packages/rtl-viewer/src/*"],
       "react": ["./node_modules/@types/react"],
       "react/*": ["./node_modules/@types/react/*"],
       "react-dom": ["./node_modules/@types/react-dom"],
@@ -26,5 +26,5 @@
       "elkjs/*": ["./node_modules/elkjs/*"]
     }
   },
-  "include": ["src", "../packages/rtl-viewer/src"]
+  "include": ["src", "./vendor/aurora/packages/rtl-viewer/src"]
 }

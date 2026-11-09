@@ -30,7 +30,7 @@ tauri-build = { version = "2", features = [] }
 # o único crate da AURORA que o Studio linka, até a 1.0: o resto (o projeto,
 # os fluxos, o histórico, instalar e atualizar) é pedido ao servidor da AURORA
 # (`aurora serve`, src/server.rs). Ver docs/DEVELOPMENT.md.
-aurora-agent = { path = "../../crates/aurora-agent" }
+aurora-agent = { path = "../vendor/aurora/crates/aurora-agent" }
 
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
@@ -63,7 +63,7 @@ win32job = "2"
 tempfile = "3"
 # Os testes conferem a versão do protocolo e o schema embutido contra os do
 # AURORA.
-aurora-protocol = { path = "../../crates/aurora-protocol" }
+aurora-protocol = { path = "../vendor/aurora/crates/aurora-protocol" }
 
 [profile.release]
 codegen-units = 1

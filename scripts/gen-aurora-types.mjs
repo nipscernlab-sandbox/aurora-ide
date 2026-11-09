@@ -11,7 +11,7 @@ import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { compile } from 'json-schema-to-typescript';
 
-const repo = resolve(process.env.AURORA_REPO ?? join(import.meta.dirname, '..', '..'));
+const repo = resolve(process.env.AURORA_REPO ?? join(import.meta.dirname, '..', 'vendor', 'aurora'));
 const dir = join(repo, 'docs', 'schema');
 const out = join(import.meta.dirname, '..', 'src', 'ipc', 'aurora-types.ts');
 

@@ -1,17 +1,17 @@
 //! Os fluxos do Studio (`src/flows.rs`) rodando de verdade: o pedido que a
 //! interface manda vai ao servidor da AURORA (`aurora serve`), que roda o fluxo
-//! com o bundle sobre cópias dos exemplos da AURORA (`examples/`, na raiz do
-//! repositório), e a resposta volta como a interface a lê.
+//! com o bundle sobre cópias dos exemplos da AURORA (`examples/` do submódulo
+//! `vendor/aurora`), e a resposta volta como a interface a lê.
 //!
 //! O servidor é o `aurora` de `AURORA_IDE_CLI` ou, sem ela, o build de
-//! desenvolvimento em `target/debug` da raiz do repositório. O bundle é o
-//! que o Studio acharia sozinho (a instalação da AURORA) ou o de
+//! desenvolvimento em `vendor/aurora/target/debug`. O bundle é o que o
+//! Studio acharia sozinho (a instalação da AURORA) ou o de
 //! `AURORA_TEST_BUNDLE`. Sem um dos dois, os testes avisam e passam, como os
 //! da AURORA; com a variável `CI` definida, falham, porque lá não podem
 //! pular.
 //!
 //! ```sh
-//! cargo build -p aurora-cli                                  # na raiz
+//! cargo build -p aurora-cli                                  # em vendor/aurora
 //! cargo test --test flows                                  # instalação da AURORA
 //! AURORA_TEST_BUNDLE=/caminho/do/toolchain cargo test --test flows
 //! ```
@@ -47,7 +47,7 @@ fn settings() -> Option<Settings> {
             "aurora"
         };
         let dev = Utf8Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../target/debug")
+            .join("../vendor/aurora/target/debug")
             .join(exe);
         if !dev.is_file() {
             return skip(
@@ -109,10 +109,10 @@ fn copy_dir(from: &Utf8Path, to: &Utf8Path) {
     }
 }
 
-/// Copia `examples/<nome>` (da raiz do repositório) para uma pasta
+/// Copia `examples/<nome>` (do submódulo `vendor/aurora`) para uma pasta
 /// temporária e devolve o `.spf` da cópia.
 fn example(name: &str) -> (tempfile::TempDir, Utf8PathBuf) {
-    let examples = Utf8Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples");
+    let examples = Utf8Path::new(env!("CARGO_MANIFEST_DIR")).join("../vendor/aurora/examples");
     let dir = tempfile::tempdir().unwrap();
     let root = Utf8PathBuf::from_path_buf(dir.path().join(name)).unwrap();
     copy_dir(&examples.join(name), &root);
@@ -397,8 +397,8 @@ fn learn_flow_checks_an_exercise_and_records_it() {
     let Some(mut settings) = settings() else {
         return;
     };
-    let fixtures =
-        Utf8Path::new(env!("CARGO_MANIFEST_DIR")).join("../../crates/aurora-learn/tests/fixtures");
+    let fixtures = Utf8Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../vendor/aurora/crates/aurora-learn/tests/fixtures");
     settings.learn_dir = Some(fixtures.to_string());
     let server = AuroraServer::default();
     if !has(&server, &settings, "icarus") {

@@ -45,7 +45,7 @@ const PROTOCOL_VERSION: u64 = 2;
 /// O schema dos pedidos do protocolo, gerado do código da AURORA
 /// (`docs/schema/protocol-request.json`): é por ele que o Studio sabe quais
 /// métodos têm `project`.
-const REQUEST_SCHEMA: &str = include_str!("../../../docs/schema/protocol-request.json");
+const REQUEST_SCHEMA: &str = include_str!("../../vendor/aurora/docs/schema/protocol-request.json");
 
 /// Quanto esperar o `initialize` de um servidor que acabou de abrir.
 const START_WAIT: Duration = Duration::from_secs(30);
