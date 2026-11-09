@@ -75,16 +75,21 @@ jobs:
         working-directory: vendor/aurora
         run: cargo build -p aurora-cli
       # Só as ferramentas que os testes de fluxo usam, da última release da
-      # AURORA, na pasta padrão (~/.local/share/aurora), onde a IDE e o
-      # servidor a acham sozinhos.
+      # AURORA, numa pasta do runner. A IDE acha sozinha só a instalação do
+      # `aurora` do PATH, e esta fica fora dele (--no-link): os testes a
+      # recebem em AURORA_TEST_BUNDLE.
       - name: Bundle da AURORA
         env:
           AURORA_REPO: nipscernlab-sandbox/aurora
-        run: sh vendor/aurora/install.sh --yes --no-link --components yanc,icarus,verilator,yosys,graphviz
+        run: |
+          sh vendor/aurora/install.sh --yes --no-link --prefix "$RUNNER_TEMP/aurora" \
+            --components yanc,icarus,verilator,yosys,graphviz
       # Com CI definido (o GitHub define), um teste de fluxo sem servidor ou
       # sem bundle falha em vez de pular.
       - name: Testes
         working-directory: src-tauri
+        env:
+          AURORA_TEST_BUNDLE: ${{ runner.temp }}/aurora/toolchain
         run: cargo test
 
   commits:
