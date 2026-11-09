@@ -908,7 +908,7 @@ export const en: Record<Key, string> = {
   'toolchain.upstreamNote': 'A tool with a newer upstream version only arrives in a new bundle, with a new AURORA release.',
   'toolchain.auroraCli': 'aurora CLI',
   'toolchain.notFound': 'AURORA was not found',
-  'toolchain.notFoundHint': 'Install AURORA (curl -fsSL https://raw.githubusercontent.com/ART3121/lace/main/install.sh | sh) or point to the bundle folder in the settings.',
+  'toolchain.notFoundHint': 'Install AURORA (curl -fsSL https://raw.githubusercontent.com/nipscernlab-sandbox/aurora/main/install.sh | sh) or point to the bundle folder in the settings.',
   'toolchain.openSettings': 'Open settings',
 
   'settings.title': 'Settings',

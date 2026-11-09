@@ -937,7 +937,7 @@ export const pt = {
   'toolchain.upstreamNote': 'Uma ferramenta com versão upstream mais nova só chega num bundle novo, com uma release nova da AURORA.',
   'toolchain.auroraCli': 'CLI aurora',
   'toolchain.notFound': 'A AURORA não foi encontrada',
-  'toolchain.notFoundHint': 'Instale a AURORA (curl -fsSL https://raw.githubusercontent.com/ART3121/lace/main/install.sh | sh) ou indique a pasta do bundle nas preferências.',
+  'toolchain.notFoundHint': 'Instale a AURORA (curl -fsSL https://raw.githubusercontent.com/nipscernlab-sandbox/aurora/main/install.sh | sh) ou indique a pasta do bundle nas preferências.',
   'toolchain.openSettings': 'Abrir preferências',
 
   // Preferências

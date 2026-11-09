@@ -468,7 +468,7 @@ function editorCommand(id: string) {
 }
 
 // Links de ajuda: só os endereços que existem.
-export const AURORA_CLI_DOCS = 'https://github.com/ART3121/lace/blob/main/docs/CLI.md';
+export const AURORA_CLI_DOCS = 'https://github.com/nipscernlab-sandbox/aurora/blob/main/docs/CLI.md';
 export const SAPHO_MANUAL = 'https://nipscern.com/library/sapho';
 export const NIPSCERN_SITE = 'https://nipscern.com';
 export const NIPSCERN_GITHUB = 'https://github.com/nipscernlab';
