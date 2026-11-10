@@ -13,6 +13,7 @@ import type { Diagnostic } from '../ipc/aurora-types';
 import { alpha, tokenRule, uiTokens, type Theme } from '../themes';
 import { asmTokenRules, registerAsm } from './languages/asm';
 import { cmmTokenRules, registerCmm } from './languages/cmm';
+import { registerVhdl } from './languages/vhdl';
 
 export { monaco };
 
@@ -27,6 +28,7 @@ self.MonacoEnvironment = {
 
 registerCmm(monaco);
 registerAsm(monaco);
+registerVhdl(monaco);
 
 // A gramática de Verilog e SystemVerilog do Monaco declara module/endmodule e
 // begin/end como pares. Casar um com o outro serve; colori-los como
@@ -60,6 +62,8 @@ const EXTENSION_LANGUAGE: Record<string, string> = {
   vt: 'verilog',
   sv: 'systemverilog',
   svh: 'systemverilog',
+  vhd: 'vhdl',
+  vhdl: 'vhdl',
   c: 'cpp',
   cpp: 'cpp',
   h: 'cpp',
@@ -94,6 +98,7 @@ export function languageLabel(languageId: string): string {
     'sapho-asm': 'SAPHO ASM',
     verilog: 'Verilog',
     systemverilog: 'SystemVerilog',
+    vhdl: 'VHDL',
     cpp: 'C/C++',
     python: 'Python',
     json: 'JSON',
