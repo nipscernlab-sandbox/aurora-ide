@@ -44,6 +44,7 @@ import { useTour } from './state/tour';
 import { startUpdateChecks } from './state/updates';
 import { watchWideTabs } from './state/wideTabs';
 import type { Theme } from './themes';
+import { isHdl } from './hdl';
 import { extension, isAbsolutePath, normalizeDots, resolveFrom } from './util/paths';
 
 /**
@@ -164,7 +165,7 @@ async function start(): Promise<() => void> {
     useProject.getState().bumpTree();
     void useEditor.getState().onDiskChange(paths);
     useLearn.getState().onDiskChange(paths);
-    if (paths.some((p) => ['v', 'sv', 'vh', 'svh'].includes(extension(p)))) useHierarchy.getState().markStale();
+    if (paths.some(isHdl)) useHierarchy.getState().markStale();
     window.clearTimeout(refreshTimer);
     refreshTimer = window.setTimeout(() => void useProject.getState().refresh(), 400);
   });

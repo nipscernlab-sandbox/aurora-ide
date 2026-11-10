@@ -18,6 +18,7 @@ import { removeReports } from '../../state/reports';
 import { applyLayout, namedLayouts, useLayoutStatus, type NamedLayout } from '../../state/savedLayouts';
 import { guarded } from '../../state/toasts';
 import { PALETTES, paletteName, paletteOf, themeById } from '../../themes';
+import { isVhdl, type HdlChoice } from '../../hdl';
 import { baseName, joinPath, relativeTo } from '../../util/paths';
 import { Button, Checkbox, Field, Kbd } from '../common';
 import { WaveSignalsDialog } from './WaveSignalsDialog';
@@ -328,33 +329,40 @@ function NewVerilogDialog({
   const t = useT();
   const snapshot = useProject((s) => s.snapshot)!;
   const [testbench, setTestbench] = useState(initialTb || !!initialCocotb);
-  // O testbench em Verilog ou em Python (cocotb, que a AURORA roda no Icarus).
-  const [cocotb, setCocotb] = useState(!!initialCocotb);
+  // O arquivo em Verilog ou VHDL; o testbench também em Python (cocotb, que a
+  // AURORA roda no Icarus). Começa na linguagem do topo do projeto.
+  const [language, setLanguage] = useState<HdlChoice>(() =>
+    initialCocotb ? 'cocotb' : snapshot.top_level && isVhdl(snapshot.top_level) ? 'vhdl' : 'verilog',
+  );
+  const cocotb = language === 'cocotb';
   const [folder, setFolder] = useState(initialFolder ?? '');
-  const suggested = (tb: boolean, py: boolean) => {
+  const suggested = (tb: boolean, choice: HdlChoice) => {
     if (!tb || !snapshot.top_module) return '';
-    return py ? `test_${snapshot.top_module}.py` : `${snapshot.top_module}_tb.v`;
+    if (choice === 'cocotb') return `test_${snapshot.top_module}.py`;
+    return `${snapshot.top_module}_tb.${choice === 'vhdl' ? 'vhd' : 'v'}`;
   };
-  const [name, setName] = useState(() => suggested(initialTb || !!initialCocotb, !!initialCocotb));
+  const [name, setName] = useState(() => suggested(initialTb || !!initialCocotb, language));
 
   const python = testbench && cocotb;
+  const vhdl = language === 'vhdl';
+  // A extensão que o nome digitado já tem vale; sem ela, a da linguagem.
   const fileName = !name
     ? name
     : python
       ? /\.py$/i.test(name)
         ? name
         : `${name}.py`
-      : /\.(s?v|vh|svh|py)$/i.test(name)
+      : /\.(s?v|vh|svh|vhdl?|py)$/i.test(name)
         ? name
-        : `${name}.v`;
+        : `${name}.${vhdl ? 'vhd' : 'v'}`;
   // O cocotb importa o .py como módulo Python: o nome precisa ser um
   // identificador (o Core recusa o resto).
   const badPythonName = /\.py$/i.test(fileName) && !/^[A-Za-z_][A-Za-z0-9_]*\.py$/i.test(baseName(fileName));
   const invalid = !fileName || /[\\:*?"<>|]/.test(fileName) || badPythonName;
   // O nome sugerido acompanha a linguagem enquanto o usuário não escreveu outro.
-  const chooseCocotb = (py: boolean) => {
-    if (name === suggested(testbench, cocotb)) setName(suggested(testbench, py));
-    setCocotb(py);
+  const chooseLanguage = (choice: HdlChoice) => {
+    if (name === suggested(testbench, language)) setName(suggested(testbench, choice));
+    setLanguage(choice);
   };
   const submit = async () => {
     if (invalid) return;
@@ -385,23 +393,31 @@ function NewVerilogDialog({
           autoFocus
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder={python ? 'test_alu.py' : testbench ? 'alu_tb.v' : 'alu.v'}
+          placeholder={python ? 'test_alu.py' : `alu${testbench ? '_tb' : ''}.${vhdl ? 'vhd' : 'v'}`}
           aria-invalid={badPythonName}
         />
       </Field>
       <Field label={t('dialog.newVerilog.folder')}>
         <input className="input" value={folder} onChange={(e) => setFolder(e.target.value)} placeholder="rtl" />
       </Field>
-      <Checkbox checked={testbench} onChange={setTestbench} label={t('dialog.newVerilog.testbench')} />
-      {testbench && (
-        <Field label={t('dialog.newVerilog.language')}>
-          <select className="select" value={cocotb ? 'cocotb' : 'verilog'} onChange={(e) => chooseCocotb(e.target.value === 'cocotb')}>
-            <option value="verilog">Verilog</option>
-            <option value="cocotb">{t('dialog.newVerilog.cocotb')}</option>
-          </select>
-        </Field>
-      )}
-      <p className="muted">{python ? t('dialog.newVerilog.cocotbHint') : t('dialog.newVerilog.hint')}</p>
+      <Checkbox
+        checked={testbench}
+        onChange={(tb) => {
+          setTestbench(tb);
+          if (!tb && cocotb) setLanguage('verilog');
+        }}
+        label={t('dialog.newVerilog.testbench')}
+      />
+      <Field label={t('dialog.newVerilog.language')}>
+        <select className="select" value={language} onChange={(e) => chooseLanguage(e.target.value as HdlChoice)}>
+          <option value="verilog">Verilog</option>
+          <option value="vhdl">VHDL</option>
+          {testbench && <option value="cocotb">{t('dialog.newVerilog.cocotb')}</option>}
+        </select>
+      </Field>
+      <p className="muted">
+        {python ? t('dialog.newVerilog.cocotbHint') : vhdl ? t('dialog.newVerilog.vhdlHint') : t('dialog.newVerilog.hint')}
+      </p>
     </Dialog>
   );
 }

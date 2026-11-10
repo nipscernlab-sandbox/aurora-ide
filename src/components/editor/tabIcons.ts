@@ -29,7 +29,7 @@ import { baseName, extension, samePath } from '../../util/paths';
 import { FILE_ICONS, type FileKind } from './fileIcons';
 
 /** Testbench pelo projeto (a lista de testbenches do `.spf`) ou pelo nome:
- * `tb_<nome>.v`, `<nome>_tb.v` e o `test_<nome>.py` do cocotb. */
+ * `tb_<nome>.v`, `<nome>_tb.vhd` e o `test_<nome>.py` do cocotb. */
 function isTestbench(path: string): boolean {
   if (/^tb_|_tb\.[^.]+$|^test_.+\.py$/i.test(baseName(path))) return true;
   return useProject.getState().snapshot?.testbenches.some((file) => samePath(file.path, path)) ?? false;
@@ -43,6 +43,8 @@ export function fileKind(path: string): FileKind | null {
     case 'sv':
     case 'vh':
     case 'svh':
+    case 'vhd':
+    case 'vhdl':
       return isTestbench(path) ? 'testbench' : 'verilog';
     case 'py':
       return isTestbench(path) ? 'testbench' : null;

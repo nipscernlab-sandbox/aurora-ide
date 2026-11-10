@@ -64,6 +64,7 @@ import { useJobs } from '../../state/jobs';
 import { useLayout, type ExplorerMode } from '../../state/layout';
 import { useProject } from '../../state/project';
 import { guarded, showError } from '../../state/toasts';
+import { isRegistrable } from '../../hdl';
 import { baseName, dirName, extension, isInside, joinPath, relativeTo, relativeUp, samePath } from '../../util/paths';
 import { Badge, Empty, FoldContext, IconButton, openContextMenu, Section, Spinner, useFoldable, type MenuItem } from '../common';
 import { fileIcon } from '../editor/tabIcons';
@@ -811,7 +812,7 @@ function InstanceNode({
         depth={depth}
         icon={icon}
         label={node.name}
-        detail={node.name === node.module ? undefined : node.module}
+        detail={moduleDetail(node)}
         title={[path, file ? `${relativeTo(file, root)}${node.line ? `:${node.line}` : ''}` : ''].filter(Boolean).join('\n')}
         badges={node.library ? <Badge>SAPHO</Badge> : isTop ? <Badge tone="accent">{t('explorer.topBadge')}</Badge> : undefined}
         gitPath={file ?? undefined}
@@ -1048,7 +1049,7 @@ function DirNode({
 
   const menu = (e: React.MouseEvent) => {
     const dir = entry.is_dir ? entry.path : dirName(entry.path);
-    const verilog = project && ['v', 'sv'].includes(extension(entry.path));
+    const verilog = project && isRegistrable(entry.path);
     // Um .py entra no projeto como testbench cocotb; topo, nunca.
     const cocotb = project && !entry.is_dir && extension(entry.path) === 'py';
     openContextMenu(e, [
@@ -1408,4 +1409,14 @@ export function Explorer() {
       <DragGhost />
     </>
   );
+}
+
+/** O que a hierarquia mostra ao lado do nome da instância: o módulo, quando
+ * o nome é outro, e no VHDL a arquitetura que o GHDL elaborou
+ * (`contador (rtl)`). */
+function moduleDetail(node: ModuleInstance): string | undefined {
+  const module = node.name === node.module ? '' : node.module;
+  const architecture = node.architecture ? `(${node.architecture})` : '';
+  const detail = [module, architecture].filter(Boolean).join(' ');
+  return detail || undefined;
 }

@@ -66,6 +66,7 @@ import { guarded, showError, useToasts } from './state/toasts';
 import { useTour } from './state/tour';
 import { openWaveTab, waveInTab } from './state/waves';
 import { toggledMode } from './themes';
+import { isVhdl, VERILOG_EXTENSIONS, VHDL_EXTENSIONS } from './hdl';
 import { baseName, extension, isInside, joinPath, relativeTo, resolveFrom } from './util/paths';
 
 export type ActionCategory = 'file' | 'edit' | 'view' | 'project' | 'flow' | 'tools' | 'help';
@@ -208,10 +209,12 @@ export function runSimulation(openWave: boolean, processor?: string | null) {
 
 /** O simulador da simulação rápida do alvo (ou do processador dado), pela
  * regra do Core (`SimulationOptions::fast`): o Verilator, menos para um
- * testbench cocotb, que roda os testes no simulador das preferências. */
+ * testbench cocotb, que roda os testes no simulador das preferências, e
+ * para um testbench VHDL, que roda no GHDL sem onda. */
 export function fastSimulator(processor?: string | null): Simulator {
   const name = processor === undefined ? target() : processor;
   const testbench = useProject.getState().snapshot?.selected_testbench;
+  if (!name && testbench && isVhdl(testbench)) return 'ghdl';
   if (!name && testbench && extension(testbench) === 'py') return settings()?.simulator ?? 'icarus';
   return 'verilator';
 }
@@ -376,8 +379,9 @@ export async function addVerilogFiles(paths?: string[]) {
       directory: false,
       defaultPath: await projectsFolder(),
       filters: [
-        { name: 'Verilog, cocotb', extensions: ['v', 'sv', 'vh', 'svh', 'py'] },
-        { name: 'Verilog', extensions: ['v', 'sv', 'vh', 'svh'] },
+        { name: 'Verilog, VHDL, cocotb', extensions: [...VERILOG_EXTENSIONS, ...VHDL_EXTENSIONS, 'py'] },
+        { name: 'Verilog', extensions: VERILOG_EXTENSIONS },
+        { name: 'VHDL', extensions: VHDL_EXTENSIONS },
         { name: 'cocotb (Python)', extensions: ['py'] },
       ],
     });

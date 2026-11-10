@@ -37,6 +37,7 @@ import { confirm } from '../../state/dialogs';
 import { useEditor } from '../../state/editor';
 import { useProject } from '../../state/project';
 import { showError, useToasts } from '../../state/toasts';
+import { isRegistrable } from '../../hdl';
 import { baseName, dirName, extension, isInside, joinPath, samePath } from '../../util/paths';
 
 export type DropSection = 'modules' | 'testbenches';
@@ -102,8 +103,8 @@ export function sameTarget(a: DropTarget | null, b: DropTarget | null): boolean 
   return a.kind === 'section' && b.kind === 'section' && a.section === b.section;
 }
 
-/** O que entra nas listas do projeto: Verilog e testbench cocotb (.py). */
-const isVerilog = (path: string) => ['v', 'sv', 'py'].includes(extension(path));
+/** O que entra nas listas do projeto: Verilog, VHDL e testbench cocotb (.py). */
+const isVerilog = (path: string) => isRegistrable(path) || extension(path) === 'py';
 
 /** Pastas e arquivos que não se movem: o `.spf`, `.aurora8/` e as pastas dos
  * processadores (o backend recusa também). */
