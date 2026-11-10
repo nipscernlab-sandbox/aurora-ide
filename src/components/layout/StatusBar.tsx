@@ -38,6 +38,7 @@ import { useLayout } from '../../state/layout';
 import { useProject } from '../../state/project';
 import { canUpdate, finishPending, offerUpdate, useUpdates } from '../../state/updates';
 import { baseName } from '../../util/paths';
+import { simulatorFor, simulatorLabel } from '../../hdl';
 import { Kbd, openContextMenu, Spinner } from '../common';
 import { statusBarMenu } from './layoutMenus';
 
@@ -161,7 +162,9 @@ export function StatusBar() {
   const cursor = useEditor((s) => s.cursor);
   const languageId = useEditor((s) => s.languageId);
   const activeIsFile = useEditor((s) => s.tabs.find((tab) => tab.id === s.activeId)?.kind === 'file');
-  const simulator = useApp((s) => s.settings?.simulator ?? 'icarus');
+  const preference = useApp((s) => s.settings?.simulator ?? 'icarus');
+  const testbench = useProject((s) => s.snapshot?.selected_testbench);
+  const simulator = simulatorFor(preference, testbench);
   const toolchain = useApp((s) => s.toolchain);
   const vim = useApp((s) => s.settings?.editor.vim_mode ?? false);
   const pending = useChord((s) => s.pending);
@@ -255,7 +258,7 @@ export function StatusBar() {
           <span className="statusbar__item">{t('status.cursor', { line: cursor.line, col: cursor.column })}</span>
         )}
         {activeIsFile && languageId && shown('language') && <span className="statusbar__item">{languageLabel(languageId)}</span>}
-        {shown('simulator') && <span className="statusbar__item">{simulator === 'icarus' ? 'Icarus' : 'Verilator'}</span>}
+        {shown('simulator') && <span className="statusbar__item">{simulatorLabel(simulator)}</span>}
         <UpdateIndicator />
         {shown('bundle') && (
           <button

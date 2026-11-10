@@ -22,6 +22,7 @@ import { useJobs, type ActionStatus } from '../../state/jobs';
 import { useProject } from '../../state/project';
 import { Empty, Kbd, Section, StatusDot } from '../common';
 import { MissingSpfNotice } from './MissingSpfNotice';
+import { simulatorFor, simulatorLabel } from '../../hdl';
 
 function Item({
   label,
@@ -69,7 +70,10 @@ export function FlowNavigator() {
   const running = useJobs((s) => s.running);
   const statusByKey = useJobs((s) => s.statusByKey);
   const fpga = useFeature('fpga');
-  const simulator = useApp((s) => s.settings?.simulator ?? 'icarus');
+  const simulator = simulatorFor(
+    useApp((s) => s.settings?.simulator ?? 'icarus'),
+    target ? null : snapshot?.selected_testbench,
+  );
 
   if (!snapshot) {
     return (
@@ -133,13 +137,13 @@ export function FlowNavigator() {
         <ActionItem id="lint" statusKey={target ? `lint:${target}` : 'lint'} />
       </Section>
 
-      <Section title={`${t('flow.simulation')} (${simulator === 'icarus' ? 'Icarus' : 'Verilator'})`}>
+      <Section title={`${t('flow.simulation')} (${simulatorLabel(simulator)})`}>
         <ActionItem id="simulate" statusKey={target ? `simulate:${target}` : 'simulate'} />
         {/* A Rápida tem simulador próprio: o Verilator, menos com cocotb. */}
         <ActionItem
           id="fastSim"
           statusKey={target ? `fastSim:${target}` : 'fastSim'}
-          hint={fastSimulator() === 'icarus' ? 'Icarus' : 'Verilator'}
+          hint={simulatorLabel(fastSimulator())}
         />
         <Item label={t('action.openWave')} keys="Ctrl+F8" onClick={() => void openWave()} />
         <Item

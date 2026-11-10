@@ -47,6 +47,7 @@ import { useProject } from './project';
 import { useSchematic } from './schematic';
 import { showError, useToasts } from './toasts';
 import { openWaveTab } from './waves';
+import { simulatorLabel } from '../hdl';
 
 export type ActionStatus = 'ok' | 'failed' | 'running';
 
@@ -113,6 +114,8 @@ const STEP_CHANNEL: Record<Step, ConsoleChannel> = {
   assemble: 'asm',
   check_syntax: 'verilog',
   lint: 'verilog',
+  // O `ghdl -i` do VHDL abre a simulação, como a elaboração do Icarus.
+  analyze: 'wave',
   elaborate: 'wave',
   verilate: 'wave',
   simulate: 'wave',
@@ -406,7 +409,7 @@ function writeOutcome(outcome: FlowOutcome): void {
       s.status,
       t(s.fast ? 'console.fastSimTitle' : 'console.simTitle', {
         top: s.top,
-        simulator: s.simulator === 'icarus' ? 'Icarus' : 'Verilator',
+        simulator: simulatorLabel(s.simulator),
         status: statusText(s.status),
         time: formatDuration(s.duration_ms),
       }),
