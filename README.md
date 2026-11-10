@@ -47,7 +47,7 @@ os métodos da AURORA do mesmo bundle, as duas saem juntas:
 | AURORA IDE | AURORA | Protocolo |
 |---|---|---|
 | 8.0.0 | 1.0.0 | 2 |
-| 8.1.0 | 1.1.0, ainda não lançada | 2 |
+| 8.1.0 | 1.1.0 | 2 |
 
 Neste repositório, a AURORA entra como submódulo git em `vendor/aurora`,
 fixado num commit. Dali vêm o `aurora` que serve nos testes e no
