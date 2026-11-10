@@ -101,7 +101,19 @@ do `fpga_build`, com o bundle que o Studio acharia sozinho ou com
 `AURORA_IDE_CLI` ou, sem ela, o `vendor/aurora/target/debug/aurora` (compile
 antes, como na seção 1). Os testes de unidade do `server.rs` que
 abrem um servidor de verdade também usam `AURORA_IDE_CLI`. Sem bundle ou
-sem `aurora`, avisam e passam; com `CI` definido, falham.
+sem `aurora`, avisam e passam; com `CI` definido, falham. A IDE só acha
+sozinha a instalação do `aurora` que está no `PATH`; fora dele, passe o
+bundle em `AURORA_TEST_BUNDLE`, como o CI faz.
+
+No Windows, o binário de testes do backend pode não abrir
+(STATUS_ENTRYPOINT_NOT_FOUND, visto com o toolchain GNU do Rust): ele
+importa o `TaskDialogIndirect` do comctl32, e o `tauri-build` só liga o
+manifesto do Common Controls 6 nos executáveis do aplicativo. O contorno:
+copiar o `.exe` de testes para outro nome (o Windows guarda a ativação sem
+manifesto do nome antigo), pôr ao lado um `<nome>.exe.manifest` que pede o
+`Microsoft.Windows.Common-Controls` 6.0.0.0, pôr a pasta `target/debug` (a
+do `WebView2Loader.dll`) no `PATH` e rodar o `.exe` direto. O CI roda os
+testes no Linux, onde isso não acontece.
 
 Antes de mandar uma mudança: `typecheck`, `clippy` sem aviso, `cargo test`
 e, se mexeu na interface, abrir o Studio e passar pelo que mudou.
