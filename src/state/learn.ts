@@ -25,7 +25,7 @@ import { t, useLang } from '../i18n';
 import { api } from '../ipc/api';
 import type { Grade } from '../ipc/aurora-types';
 import type { IpcError, LearnExercise, LearnSnapshot } from '../ipc/types';
-import { samePath } from '../util/paths';
+import { baseName, samePath } from '../util/paths';
 import { confirm } from './dialogs';
 import { fileTabId, useEditor, viewTabId } from './editor';
 import { useJobs } from './jobs';
@@ -281,7 +281,7 @@ export const useLearn = create<LearnState>((set, get) => ({
     if (!snapshot || !exercise) return;
     const answer = await confirm({
       title: t('learn.resetTitle'),
-      message: t('learn.resetMessage', { file: exercise.module + '.v' }),
+      message: t('learn.resetMessage', { file: baseName(exercise.file) }),
       buttons: [
         { label: t('common.cancel'), value: 'cancel' },
         { label: t('learn.reset'), value: 'reset', danger: true },
