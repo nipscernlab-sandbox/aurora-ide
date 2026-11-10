@@ -3,6 +3,23 @@
 O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/);
 as versões, o [SemVer](https://semver.org/lang/pt-BR/).
 
+## [Não lançado]
+
+### Alterado
+
+- A simulação rápida (F9) fica calada: não mostra o que as ferramentas
+  escrevem (o YANC, o build do Verilator, o testbench) nem os valores das
+  portas de saída, e o servidor da AURORA nem manda essa saída ao vivo. Um
+  processador simulado por 25 milhões de clocks punha 4 milhões de números
+  numa linha só, com 30 MiB, e a janela parava por um segundo. O INFO
+  mostra as fases e os resultados, também no modo detalhado; a etapa que
+  falhar mostra as últimas 200 linhas do que escreveu, e os erros, os
+  avisos e a porta que não deu para ler continuam aparecendo. Os valores
+  ficam na aba do processador e no `output_<n>.txt`; a AURORA que aceita o
+  `port_values_limit` no `flow.run` nem os manda, e os da 1.1.0 o backend
+  descarta. O `$display` de um testbench Verilog também não aparece mais na
+  Rápida: para vê-lo, use a Wave (F8), que continua mostrando tudo.
+
 ## [8.1.0] - 2026-11-09
 
 ### Acrescentado

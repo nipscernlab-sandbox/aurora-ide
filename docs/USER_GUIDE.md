@@ -430,9 +430,11 @@ simulado, clique com o botão direito no arquivo, no explorador.
 6. **C±** (F6): compila (cmmcomp ou cppcomp, depois asmcomp). Os erros do
    YANC apontam a linha do fonte, ou do cabeçalho incluído, em C.
 7. **Wave** (F8) ou **Rápida** (F9): simula o processador com o testbench
-   que o YANC gerou; a Rápida, no Verilator e sem gravar onda. No fim, o
-   INFO mostra os valores de cada porta de saída (`Saída 0: 55`), e
-   a aba do processador também.
+   que o YANC gerou; a Rápida, no Verilator e sem gravar onda. No fim da
+   Wave, o INFO mostra os valores de cada porta de saída (`Saída 0: 55`).
+   A Rápida não mostra os valores nem o que as ferramentas escrevem, porque
+   uma simulação longa daria milhões de linhas: os valores ficam na aba do
+   processador e no `output_<n>.txt`.
 
 A **aba do processador** (duplo clique nele no explorador) tem a frequência,
 o número de clocks, a exportação de arrays para a onda e o tempo simulado
@@ -542,7 +544,7 @@ mesmas teclas.
 | Verilog | F7 | verifica o Verilog com o Icarus, sem compilar os processadores (o Verilog do YANC entra como está no disco; compile antes com F6); com um processador no alvo, verifica o Verilog dele com o testbench do YANC | `aurora check [-p NOME]` |
 | (menu Fluxo) | Shift+F7 | o mesmo, com o lint do Verilator | `aurora check [-p NOME] --lint` |
 | Wave | F8 | compila, simula e abre a onda | `aurora sim [-p NOME] --open` |
-| Rápida | F9 | a simulação rápida, o Fast Sim da AURORA: compila e simula sem gravar onda, para ver a saída, as portas e os testes. O testbench Verilog e o de um processador rodam no Verilator, qualquer que seja o simulador escolhido; um testbench cocotb, no simulador escolhido. O navegador de fluxo mostra qual | `aurora sim [-p NOME] --fast` |
+| Rápida | F9 | a simulação rápida, o Fast Sim da AURORA: compila e simula sem gravar onda e sem mostrar o que as ferramentas e o testbench escrevem: o INFO dá as fases, o resultado e os testes do cocotb, e a etapa que falhar mostra o fim do que escreveu. Os valores das portas ficam na aba do processador. O testbench Verilog e o de um processador rodam no Verilator, qualquer que seja o simulador escolhido; um testbench cocotb, no simulador escolhido. O navegador de fluxo mostra qual | `aurora sim [-p NOME] --fast` |
 | Onda | Ctrl+F8 | abre a onda da última simulação | `aurora wave [-p NOME]` |
 | Sinais | | escolhe os sinais que a onda do projeto grava e mostra (seção 4.1); o número no botão é quantos itens a escolha tem | `aurora wave signals`, `aurora wave select` |
 | RTLViewer | F10 | compila, sintetiza e abre o esquemático (seção 7) | `aurora synth [-p NOME]`; o `--svg` desenha com o Graphviz |
@@ -593,7 +595,8 @@ $ aurora-ide sim -p soma
 - Cada fase começa com ▸, em negrito. Embaixo vem o nome de cada
   ferramenta que escreveu algo, em cinza, e, recuado, o que ela escreveu,
   sem mudança. Na simulação, o que o testbench escreve fica embaixo de
-  "saída do testbench".
+  "saída do testbench". A Rápida não mostra nada disso: só as fases, os
+  resultados e, se uma etapa falhar, as últimas linhas que ela escreveu.
 - A cor só mostra como algo terminou: ✓ verde, ✗ vermelho, ! amarelo, e a
   palavra de gravidade nas mensagens das ferramentas (`error`, `warning`).
   Em cinza fica o secundário: o comando, o nome da ferramenta, onde ficou a
@@ -617,7 +620,7 @@ um terminal por etapa, que correspondem aos terminais da AURORA:
 | C± | TCMM | o compilador de C± ou de C (cmmcomp, cppcomp) |
 | ASM | TASM | o montador (asmcomp) e o resumo do build |
 | Verilog | TVERI | a verificação do Icarus e o lint do Verilator |
-| Wave | TWAVE | a elaboração e a simulação: o que o testbench escreve, as saídas do processador, onde ficou a onda |
+| Wave | TWAVE | a elaboração e a simulação: o que o testbench escreve e as saídas do processador (na Rápida, só o resultado), onde ficou a onda |
 | RTLViewer | TRTLViewer | a síntese do Yosys |
 | Placa | | a compilação e a gravação pelo Quartus; só existe com a placa FPGA ligada (seção 7.2) |
 

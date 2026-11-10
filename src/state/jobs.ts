@@ -23,6 +23,7 @@ import type {
   Invocation,
   Status,
   Step,
+  StepReport,
   SynthesisResult,
   UpdateReport,
 } from '../ipc/aurora-types';
@@ -230,6 +231,17 @@ function write(stage: ConsoleChannel | null, text: string, error = false): void 
  * (outra ferramenta, o testbench) vem depois do nome dele. */
 let lastBlock: string | null = null;
 
+/** A rodada é de uma simulação rápida, que não mostra o que as ferramentas
+ * escrevem, como o Fast Sim da AURORA antiga: um processador simulado por
+ * 25 milhões de clocks enchia o console. O backend nem pede a saída ao vivo
+ * ao servidor (flows.rs); no console ficam as fases e os resultados, e a
+ * etapa que falhar mostra o fim do que escreveu (`writeQuietFailure`). */
+let quiet = false;
+
+/** Quantas linhas, no máximo, a etapa que falhou numa rodada calada mostra:
+ * as últimas, onde ficam o erro e o `$finish`. */
+const QUIET_FAILURE_LINES = 200;
+
 /** O nome do autor das próximas linhas, se ele mudou. */
 function writeBlock(stage: ConsoleChannel, key: string, title: string): void {
   if (lastBlock === key) return;
@@ -292,6 +304,7 @@ function handleEvent(event: Event): void {
       break;
     }
     case 'output': {
+      if (quiet) break;
       const stage = channelOf(event.step as Step, event.tool as string);
       // Na simulação, o que não é mensagem da ferramenta é o testbench: o
       // $display, o log do cocotb.
@@ -304,25 +317,59 @@ function handleEvent(event: Event): void {
     }
     case 'step_finished': {
       const stage = channelOf(event.step as Step, event.tool as string);
-      const termination = event.termination as { kind: string; value?: number };
-      const ok = termination.kind === 'exited' && termination.value === 0;
-      const time = formatDuration(event.duration_ms);
-      if (ok) {
-        if (verbose()) write(stage, fmt.block(`${event.tool} ${t('console.step.done')} · ${time}`));
+      const termination = event.termination as Termination;
+      if (exitedOk(termination)) {
+        if (verbose()) write(stage, fmt.block(`${event.tool} ${t('console.step.done')} · ${formatDuration(event.duration_ms)}`));
         break;
       }
-      // Cancelar não é falha da ferramenta: marcador e rótulo próprios.
-      const cancelled = termination.kind === 'cancelled';
-      const how =
-        termination.kind === 'exited'
-          ? t('console.termination.code', { code: termination.value ?? '?' })
-          : t(`console.termination.${termination.kind}` as Key);
-      const label = cancelled ? t('console.step.cancelled') : t('console.step.failed');
-      write(stage, fmt.attention(cancelled ? 'warning' : 'error', `${event.tool} ${label}: ${how} · ${time}`), !cancelled);
-      lastBlock = null;
+      writeStepEnd(stage, event.tool as string, termination, event.duration_ms);
       break;
     }
   }
+}
+
+type Termination = { kind: string; value?: number };
+
+function exitedOk(termination: Termination): boolean {
+  return termination.kind === 'exited' && termination.value === 0;
+}
+
+/** A linha de uma ferramenta que não terminou bem ("verilator falhou:
+ * código 1 · 2,1 s"). Cancelar não é falha da ferramenta: marcador e
+ * rótulo próprios. */
+function writeStepEnd(stage: ConsoleChannel, tool: string, termination: Termination, durationMs: number): void {
+  const cancelled = termination.kind === 'cancelled';
+  const how =
+    termination.kind === 'exited'
+      ? t('console.termination.code', { code: termination.value ?? '?' })
+      : t(`console.termination.${termination.kind}` as Key);
+  const label = cancelled ? t('console.step.cancelled') : t('console.step.failed');
+  write(stage, fmt.attention(cancelled ? 'warning' : 'error', `${tool} ${label}: ${how} · ${formatDuration(durationMs)}`), !cancelled);
+  lastBlock = null;
+}
+
+/** Numa rodada calada, o que a etapa `failed` escreveu, tirado do resultado
+ * (o servidor guarda o fim de cada saída), e a linha da falha, como teriam
+ * saído ao vivo. Sem isso, um erro do g++ ou um `$fatal` não apareceriam em
+ * lugar nenhum. A etapa cancelada não mostra nada. */
+function writeQuietFailure(steps: StepReport[], failed: string | null | undefined): void {
+  if (!quiet || !failed) return;
+  const step = steps.find((s) => s.step === failed);
+  if (!step || step.termination.kind === 'cancelled') return;
+  const stage = channelOf(step.step as Step, step.tool);
+  noteStepDir(step.command.cwd);
+  const lines = [step.stdout, step.stderr].flatMap((text) => text.split(/\r?\n/)).filter((line) => line.trim() !== '');
+  const shown = lines.slice(-QUIET_FAILURE_LINES);
+  if (shown.length > 0) {
+    writeBlock(stage, `${step.step}:${step.tool}`, step.tool);
+    if (shown.length < lines.length) {
+      write(stage, fmt.note(t('console.earlierLinesLeftOut', { count: (lines.length - shown.length).toLocaleString() })));
+    }
+    for (const line of shown) write(stage, fmt.toolMessage(line), fmt.isErrorMessage(line));
+  }
+  const termination = step.termination as Termination;
+  if (!exitedOk(termination)) writeStepEnd(stage, step.tool, termination, step.duration_ms);
+  lastBlock = null;
 }
 
 /** O resumo de um build, como a linha de título da CLI. Os diagnósticos vão
@@ -332,6 +379,7 @@ function handleEvent(event: Event): void {
 function writeBuild(result: BuildResult): void {
   const failedStep = result.failed_step as Step | null;
   const stage = failedStep ? STEP_CHANNEL[failedStep] : 'asm';
+  writeQuietFailure(result.steps, failedStep);
   lastBlock = null;
   writeResult(
     stage,
@@ -350,7 +398,9 @@ function writeBuild(result: BuildResult): void {
 
 function writeDiagnostics(stage: ConsoleChannel, diagnostics: Diagnostic[]): void {
   for (const d of diagnostics) {
-    if (d.severity === 'info' && !verbose()) continue;
+    // As mensagens info (as do YANC a cada build) só no modo detalhado, e
+    // nunca na Rápida, que fica calada.
+    if (d.severity === 'info' && (quiet || !verbose())) continue;
     const where = d.file ? `${rel(d.file)}${d.line ? `:${d.line}` : ''}${d.column ? `:${d.column}` : ''}: ` : '';
     const label = t(`panel.severity.${d.severity}` as Key);
     write(stage, fmt.diagnostic(where, d.severity, label, d.message), d.severity === 'error');
@@ -401,6 +451,7 @@ function writeOutcome(outcome: FlowOutcome): void {
   }
   if (outcome.simulation) {
     const s = outcome.simulation;
+    writeQuietFailure(s.steps, s.failed_step);
     writeResult(
       stage,
       s.status,
@@ -411,7 +462,12 @@ function writeOutcome(outcome: FlowOutcome): void {
         time: formatDuration(s.duration_ms),
       }),
     );
+    // A simulação rápida não escreve os valores das portas, como o Fast Sim
+    // da AURORA antiga: com 25 milhões de clocks, eram 4 milhões de números
+    // numa linha só. Eles ficam no output_<n>.txt e na aba do processador
+    // (o backend nem os repassa, flows.rs); aqui só sai a porta ilegível.
     for (const port of outcome.outputs) {
+      if (s.fast && !port.error) continue;
       const text = t('console.output', { port: port.port, values: port.error ? port.error.message : port.values.join(' ') });
       write(stage, port.error ? fmt.item('error', text) : fmt.detail(text), !!port.error);
     }
@@ -623,6 +679,7 @@ export const useJobs = create<JobsState>((set, get) => ({
     // aba até o fim.
     beginRun(runTitle(request));
     lastBlock = null;
+    quiet = request.flow === 'simulate' && !!request.fast;
     showInfo();
 
     return new Promise<FlowOutcome | null>((resolve) => {
@@ -728,6 +785,7 @@ export const useJobs = create<JobsState>((set, get) => ({
             message.events.forEach(handleEvent);
             break;
           case 'output_omitted':
+            if (quiet) break;
             write(
               channelOf(message.step, message.tool),
               fmt.note(t('console.outputOmitted', { count: message.lines.toLocaleString() })),
