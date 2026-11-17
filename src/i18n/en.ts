@@ -443,6 +443,7 @@ export const en: Record<Key, string> = {
   'console.programOutput': 'testbench output',
   'console.cancelRequested': 'Cancel requested. Stopping the tools...',
   'console.outputOmitted': '[{count} output lines left out: the tool wrote faster than the console shows]',
+  'console.earlierLinesLeftOut': '[{count} earlier lines left out]',
   'console.noProcessors': 'No processors in the project: nothing to build. Create one in Project > New SAPHO processor.',
   'console.installDone': 'Install finished with code {code}',
   'console.updateDone': 'AURORA updated to {version}',

@@ -24,6 +24,7 @@ use aurora_ide_lib::settings::Settings;
 use aurora_ide_lib::toolchain;
 use camino::{Utf8Path, Utf8PathBuf};
 use serde_json::{Value, json};
+use std::sync::{Arc, Mutex};
 
 fn skip(reason: &str) -> Option<Settings> {
     if std::env::var_os("CI").is_some() {
@@ -120,6 +121,29 @@ fn example(name: &str) -> (tempfile::TempDir, Utf8PathBuf) {
     (dir, spf)
 }
 
+/// O fluxo pelo servidor, como `jobs.rs` o roda: a mensagem final e o nome
+/// de cada notificação que chegou antes dela.
+fn finish_heard(
+    server: &AuroraServer,
+    request: &Value,
+    settings: &Settings,
+    spf: &Utf8Path,
+) -> (JobMessage, Vec<String>) {
+    let (operation, finisher) =
+        flows::plan(server, settings, spf, request.clone()).expect("o plano do fluxo");
+    let heard = Arc::new(Mutex::new(Vec::new()));
+    let sink = Arc::clone(&heard);
+    let reply = server.call_with(
+        settings,
+        operation.method,
+        operation.params,
+        Box::new(move |method, _| sink.lock().unwrap().push(method.to_owned())),
+        |_| {},
+    );
+    let heard = heard.lock().unwrap().clone();
+    (finisher.finish(reply), heard)
+}
+
 /// O fluxo pelo servidor, como `jobs.rs` o roda: a mensagem final.
 fn finish(
     server: &AuroraServer,
@@ -127,16 +151,22 @@ fn finish(
     settings: &Settings,
     spf: &Utf8Path,
 ) -> JobMessage {
-    let (operation, finisher) =
-        flows::plan(server, settings, spf, request.clone()).expect("o plano do fluxo");
-    let reply = server.call_with(
-        settings,
-        operation.method,
-        operation.params,
-        Box::new(|_, _| {}),
-        |_| {},
-    );
-    finisher.finish(reply)
+    finish_heard(server, request, settings, spf).0
+}
+
+/// Como [`run`], com o nome de cada notificação que chegou antes do
+/// resultado.
+fn run_heard(
+    server: &AuroraServer,
+    request: Value,
+    settings: &Settings,
+    spf: &Utf8Path,
+) -> (Value, Vec<String>) {
+    match finish_heard(server, &request, settings, spf) {
+        (JobMessage::Finished { outcome }, heard) => (outcome, heard),
+        (JobMessage::Failed { error }, _) => panic!("o fluxo não rodou: {error}"),
+        _ => panic!("outra mensagem"),
+    }
 }
 
 /// O resultado de um fluxo que rodou (`finished`), como a interface o lê.
@@ -209,13 +239,14 @@ fn verilog_project_checks_simulates_and_synthesizes() {
     assert!(sim["wave"].is_null(), "open_wave falso não abre o Surfer");
 
     // A Rápida (F9): o testbench Verilog no Verilator, mesmo com o Icarus
-    // escolhido, e sem onda, então nada abre.
+    // escolhido, e sem onda, então nada abre; e calada, sem a saída ao vivo.
     if has_verilator(&server, &settings) {
         let fast = json!({
             "flow": "simulate", "simulator": "icarus", "fast": true,
             "timeout_s": 300, "open_wave": true,
         });
-        let fast = run(&server, fast, &settings, &spf);
+        let (fast, heard) = run_heard(&server, fast, &settings, &spf);
+        assert!(!heard.iter().any(|m| m == "events"), "{heard:?}");
         assert_eq!(fast["command"], "aurora-ide sim --fast --timeout 300");
         let simulation = &fast["simulation"];
         assert_eq!(
@@ -285,16 +316,24 @@ fn processor_builds_and_simulates_with_port_values() {
     };
     assert_eq!(last(&sim), Some(Value::from(55)));
 
-    // A Rápida no processador: as mesmas saídas, sem onda.
+    // A Rápida no processador: sem onda, sem a saída das ferramentas ao vivo
+    // (só as fases e o build chegam) e sem os valores no resultado, que
+    // ficam no output_0.txt.
     if has_verilator(&server, &settings) {
         let fast = json!({
             "flow": "simulate", "processor": "soma", "simulator": "icarus",
             "fast": true, "timeout_s": 300,
         });
-        let fast = run(&server, fast, &settings, &spf);
+        let (fast, heard) = run_heard(&server, fast, &settings, &spf);
         assert!(succeeded(&fast), "{}", fast["simulation"]["diagnostics"]);
-        assert_eq!(last(&fast), Some(Value::from(55)));
         assert!(fast["simulation"]["waveform"].is_null());
+        assert!(!heard.iter().any(|m| m == "events"), "{heard:?}");
+        assert!(heard.iter().any(|m| m == "phase"), "{heard:?}");
+        let port = &fast["outputs"][0];
+        assert_eq!(port["values"], json!([]));
+        let written = std::fs::read_to_string(port["path"].as_str().expect("caminho"))
+            .expect("o output_0.txt");
+        assert_eq!(written.lines().last().map(str::trim), Some("55"));
     }
 
     // O alvo no F7: verifica o Verilog do soma, que o build acima compilou,

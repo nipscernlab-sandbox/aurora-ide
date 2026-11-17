@@ -459,6 +459,7 @@ export const pt = {
   'console.programOutput': 'saída do testbench',
   'console.cancelRequested': 'Cancelamento pedido. Encerrando as ferramentas...',
   'console.outputOmitted': '[{count} linhas de saída omitidas: a ferramenta escreveu mais rápido do que o console mostra]',
+  'console.earlierLinesLeftOut': '[{count} linhas anteriores ficaram de fora]',
   'console.noProcessors': 'Projeto sem processadores: não há o que compilar. Crie um em Projeto > Novo processador SAPHO.',
   'console.installDone': 'Instalação terminada com código {code}',
   'console.updateDone': 'AURORA atualizada para {version}',

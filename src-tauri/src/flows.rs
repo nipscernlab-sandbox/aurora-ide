@@ -20,8 +20,9 @@ use crate::settings::Settings;
 use crate::toolchain;
 
 /// Quanto do `stdout` e do `stderr` de cada passo vai no resultado final. A
-/// interface já recebeu cada linha pelos eventos; o resultado leva o fim,
-/// para o resumo, sem mandar megabytes de uma vez.
+/// interface já recebeu cada linha pelos eventos (menos na simulação rápida,
+/// que mostra só o fim da etapa que falhar); o resultado leva o fim, para o
+/// resumo, sem mandar megabytes de uma vez.
 const STEP_OUTPUT_LIMIT: usize = 256 * 1024;
 
 /// O programa do comando de um fluxo do Studio: quem rodou foi o Studio, não
@@ -33,6 +34,9 @@ pub struct Finisher {
     flow: String,
     command: String,
     wave_tab: bool,
+    /// A simulação rápida, que não mostra a saída das ferramentas nem os
+    /// valores das portas.
+    fast: bool,
 }
 
 /// O pedido ao servidor para o fluxo `request`, com as decisões da
@@ -62,14 +66,24 @@ pub fn plan(
     let tab = opens_wave
         && settings.wave_viewer == "tab"
         && toolchain::surfer_web(server, settings).is_some();
+    // A simulação rápida não mostra o que as ferramentas escrevem (o `quiet`
+    // de src/state/jobs.ts) nem os valores das portas, então o servidor nem
+    // manda a saída ao vivo nem os valores (`port_values_limit`; a AURORA
+    // 1.1.0 não conhece o campo e manda todos, que o `finish` descarta). O
+    // fim de cada saída continua no resultado, para a etapa que falhar.
+    let fast = flow == "simulate" && request["fast"] == true;
+    let mut options = json!({ "command": command, "wave": if tab { "none" } else { "window" } });
+    if fast {
+        options["port_values_limit"] = json!(0);
+    }
     let operation = Operation {
         command: command.clone(),
         method: "flow.run",
         params: json!({
             "project": spf,
             "request": request,
-            "options": { "command": command, "wave": if tab { "none" } else { "window" } },
-            "output": true,
+            "options": options,
+            "output": !fast,
             "step_output_limit": STEP_OUTPUT_LIMIT,
         }),
     };
@@ -77,6 +91,7 @@ pub fn plan(
         flow,
         command,
         wave_tab: tab,
+        fast,
     };
     Ok((operation, finisher))
 }
@@ -103,6 +118,22 @@ impl Finisher {
         };
         if let Some(fields) = outcome.as_object_mut() {
             fields.insert("wave_tab".to_owned(), wave_tab);
+        }
+        // A simulação rápida não mostra os valores das portas (`writeOutcome`
+        // em src/state/jobs.ts), e com 25 milhões de clocks eles eram 4
+        // milhões, 30 MiB de JSON que a interface leria e guardaria à toa. O
+        // servidor que conhece o `port_values_limit` já não os manda; o da
+        // AURORA 1.1.0 manda, e eles param aqui. A porta segue com o caminho
+        // e o erro de leitura; os valores estão no `output_<n>.txt` e na aba
+        // do processador.
+        if self.fast
+            && let Some(outputs) = outcome.get_mut("outputs").and_then(Value::as_array_mut)
+        {
+            for port in outputs {
+                if let Some(values) = port.get_mut("values") {
+                    *values = Value::Array(Vec::new());
+                }
+            }
         }
         JobMessage::Finished { outcome }
     }
@@ -133,7 +164,37 @@ mod tests {
             flow: "simulate".to_owned(),
             command: "aurora-ide sim".to_owned(),
             wave_tab,
+            fast: false,
         }
+    }
+
+    #[test]
+    fn the_fast_simulation_does_not_pass_the_port_values_on() {
+        let outcome = json!({
+            "flow": "simulate", "status": "succeeded", "succeeded": true,
+            "outputs": [
+                { "port": 0, "path": "/p/output_0.txt", "values": [1, 2, 3], "error": null },
+                {
+                    "port": 1, "path": "/p/output_1.txt", "values": [],
+                    "error": { "code": "invalid_data_file", "message": "/p/output_1.txt:3: x" },
+                },
+            ],
+        });
+        let fast = Finisher {
+            fast: true,
+            ..finisher(false)
+        };
+        let JobMessage::Finished { outcome: quick } = fast.finish(Ok(outcome.clone())) else {
+            panic!("finished");
+        };
+        assert_eq!(quick["outputs"][0]["values"], json!([]));
+        assert_eq!(quick["outputs"][0]["path"], "/p/output_0.txt");
+        assert_eq!(quick["outputs"][1]["error"]["code"], "invalid_data_file");
+        // A simulação com onda continua com os valores.
+        let JobMessage::Finished { outcome } = finisher(false).finish(Ok(outcome)) else {
+            panic!("finished");
+        };
+        assert_eq!(outcome["outputs"][0]["values"], json!([1, 2, 3]));
     }
 
     #[test]
