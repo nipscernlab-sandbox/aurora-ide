@@ -118,7 +118,7 @@ export function setLinkHandler(handler: LinkHandler): void {
 // Windows não tem (`:`, `"`, `<`, `>`, `|`, `*`, `?`). Um relativo
 // (`rtl/a.v:7`, `../../x.v:90`) vai sem espaço, porque nada diz onde ele
 // começaria.
-const EXTENSIONS = 'v|sv|vh|svh|cmm|cpp|c|h|hpp|asm|txt|mif|ys|dot|json|spf|py';
+const EXTENSIONS = 'vhdl|vhd|v|sv|vh|svh|cmm|cpp|c|h|hpp|asm|txt|mif|ys|dot|json|spf|py';
 const FILE_LINK = new RegExp(
   String.raw`(?<![\p{L}\p{N}_])((?:` +
     String.raw`(?:[A-Za-z]:[\\/]|(?<=^|[\s"'(=])/)[^"<>|*?:\r\n]*?` +

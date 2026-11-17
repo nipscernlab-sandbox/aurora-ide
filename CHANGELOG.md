@@ -3,6 +3,29 @@
 O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/);
 as versões, o [SemVer](https://semver.org/lang/pt-BR/).
 
+## [Não lançada]
+
+### Acrescentado
+
+- **VHDL** (`.vhd`, `.vhdl`), com a AURORA que traz o GHDL: realce no
+  editor (sem diferenciar maiúsculas, com o `--` e o `/* */` do VHDL-2008),
+  indentação e modelos de código (entidade, arquitetura, processo, `case`,
+  `generate`, instância, relógio, `assert`, `std.env.finish`). O diálogo de
+  arquivo novo escolhe entre Verilog, VHDL e, num testbench, cocotb, e
+  começa na linguagem do topo do projeto; o arquivo sai do modelo da AURORA
+  (um testbench `X_tb.vhd` já instancia a entidade `X`). Os `.vhd` entram
+  no projeto pelo Explorador, pelo arrastar e pelo diálogo de abrir, e os
+  links do console abrem `arquivo.vhd:linha`.
+- A simulação de um testbench VHDL roda no GHDL, com a onda em GHW: a barra
+  de status e o Fluxo dizem GHDL quando o testbench escolhido é VHDL, e a
+  Rápida roda no GHDL sem onda. A hierarquia mostra a arquitetura de cada
+  entidade (`contador (rtl)`).
+
+### Corrigido
+
+- Recomeçar um exercício dizia sempre `<módulo>.v`; agora diz o nome do
+  arquivo do exercício.
+
 ## [8.1.0] - 2026-11-09
 
 ### Acrescentado
